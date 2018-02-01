@@ -10,17 +10,61 @@ from matplotlib import image as mpimg
 # plt.plot(image[1][3][0], image[1][3][1], '.')  # left top
 
 
+def show_image(image):
+    cv2.imshow("image", image)
+    while(1):
+        k = cv2.waitKey(0)
+        if k:    # Esc key to stop
+            break
+    cv2.destroyAllWindows()
+
+
 def find_reference_dots(img):
     img_res = numpy.copy(img)
     # convert frame to gray
     gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     # add gaussian smoothing to gray frame
     blur_gray_frame = gray_img
-    # kernel_size = 5
-    # blur_gray_frame = cv2.GaussianBlur(
-    #     gray_img,
-    #     (kernel_size, kernel_size),
-    #     0)
+    kernel_size = 5
+    blur_gray_frame = cv2.GaussianBlur(
+        gray_img,
+        (kernel_size, kernel_size),
+        0)
+
+    # Otsu's thresholding after Gaussian filtering
+    # ret, blur_gray_frame_otsu = cv2.threshold(
+    #     blur_gray_frame,
+    #     0,
+    #     255,
+    #     cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    blur_gray_frame_otsu = cv2.adaptiveThreshold(
+        blur_gray_frame,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11,
+        2)
+    # show_image(blur_gray_frame_otsu)
+
+    blur_gray_frame_otsu_corners = cv2.cornerHarris(
+        blur_gray_frame_otsu,
+        2,
+        3,
+        0.04)
+
+    #result is dilated for marking the corners, not important
+    blur_gray_frame_otsu_corners = cv2.dilate(
+        blur_gray_frame_otsu_corners,
+        None)
+    # Threshold for an optimal value, it may vary depending on the image.
+    img_res[
+        blur_gray_frame_otsu_corners > 0.01 *
+        blur_gray_frame_otsu_corners.max()] = [0, 0, 255]
+
+    show_image(img_res)
+    exit()
+    return (blur_gray_frame_otsu_corners)
 
     res = cv2.adaptiveThreshold(
         gray_img,
@@ -29,7 +73,7 @@ def find_reference_dots(img):
         cv2.THRESH_BINARY,
         11,
         2)
-    return (res)
+    
     # ret, imgf = cv2.threshold(
     #     img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     # define Canny parameters:
@@ -111,19 +155,9 @@ def warp(img, polygon):
     return warped
 
 
-def show_image(image):
-    plt.imshow(image)
-    plt.show()
-    while(1):
-        k = cv2.waitKey(0)
-        if k:    # Esc key to stop
-            break
-    cv2.destroyAllWindows()
-
-
 images = []
 images.append(
-    ("/home/afomin/projects/mj/image_perspective_transform/images/test_image_1.jpg",
+    ("/home/afomin/project/image_perspective_transform/images/test_image_1.jpg",
         [
             [2456, 1706],  # right top dot
             [2455, 3327],  # right down dot
@@ -141,8 +175,7 @@ images.append(
 for image in images:
     # plot_hist(image[0])
     img = mpimg.imread(image[0])
-    show_image(img)
-    # img_lines = find_reference_dots(img)
-    # show_image(img_lines)
+    img_lines = find_reference_dots(img)
+    show_image(img_lines)
     img_warped = warp(img, image[1])
     show_image(img_warped)
